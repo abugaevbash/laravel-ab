@@ -1,15 +1,15 @@
 {
-    "name": "ben182/laravel-ab",
+    "name": "abugaevbash/laravel-ab",
     "description": "Laravel A/B experiment testing tool",
     "keywords": [
-        "ben182",
+        "abugaevbash",
         "php",
         "laravel",
         "laravel-package",
         "laravel-5-package",
         "ab-testing"
     ],
-    "homepage": "https://github.com/ben182/laravel-ab",
+    "homepage": "https://github.com/abugaevbash/laravel-ab",
     "license": "MIT",
     "type": "library",
     "authors": [
