@@ -10,10 +10,13 @@ use Jaybizzle\CrawlerDetect\CrawlerDetect;
 use Ben182\AbTesting\Events\ExperimentNewVisitor;
 use Ben182\AbTesting\Exceptions\InvalidConfiguration;
 
+use Illuminate\Support\Facades\Cookie;
+
 class AbTesting
 {
     protected $experiments;
 
+    const COOKIE_PERIOD = 60 * 24 * 180;
     const SESSION_KEY_EXPERIMENT = 'ab_testing_experiment';
     const SESSION_KEY_GOALS = 'ab_testing_goals';
 
@@ -60,13 +63,11 @@ class AbTesting
             }
         }
 
-        session([
-            self::SESSION_KEY_GOALS => new Collection,
-        ]);
+        Cookie::queue(self::SESSION_KEY_GOALS, new Collection, self::COOKIE_PERIOD);
     }
 
     /**
-     * Triggers a new visitor. Picks a new experiment and saves it to the session.
+     * Triggers a new visitor. Picks a new experiment and saves it to the cookie.
      *
      * @return \Ben182\AbTesting\Models\Experiment|void
      */
@@ -76,7 +77,7 @@ class AbTesting
             return;
         }
 
-        if (session(self::SESSION_KEY_EXPERIMENT)) {
+        if (Cookie::get(self::SESSION_KEY_EXPERIMENT)) {
             return;
         }
 
@@ -89,7 +90,7 @@ class AbTesting
     }
 
     /**
-     * Calculates a new experiment and sets it to the session.
+     * Calculates a new experiment and sets it to the cookie.
      *
      * @return void
      */
@@ -98,9 +99,7 @@ class AbTesting
         $next = $this->getNextExperiment();
         $next->incrementVisitor();
 
-        session([
-            self::SESSION_KEY_EXPERIMENT => $next,
-        ]);
+        Cookie::queue(self::SESSION_KEY_EXPERIMENT, $next, self::COOKIE_PERIOD);
     }
 
     /**
@@ -130,7 +129,7 @@ class AbTesting
     }
 
     /**
-     * Completes a goal by incrementing the hit property of the model and setting its ID in the session.
+     * Completes a goal by incrementing the hit property of the model and setting its ID in the cookie.
      *
      * @param string $goal The goals name
      *
@@ -148,11 +147,11 @@ class AbTesting
             return false;
         }
 
-        if (session(self::SESSION_KEY_GOALS)->contains($goal->id)) {
+        if (Cookie::get(self::SESSION_KEY_GOALS)->contains($goal->id)) {
             return false;
         }
 
-        session(self::SESSION_KEY_GOALS)->push($goal->id);
+        Cookie::get(self::SESSION_KEY_GOALS)->push($goal->id);
 
         $goal->incrementHit();
         event(new GoalCompleted($goal));
@@ -167,7 +166,7 @@ class AbTesting
      */
     public function getExperiment()
     {
-        return session(self::SESSION_KEY_EXPERIMENT);
+        return Cookie::get(self::SESSION_KEY_EXPERIMENT);
     }
 
     /**
@@ -177,11 +176,11 @@ class AbTesting
      */
     public function getCompletedGoals()
     {
-        if (! session(self::SESSION_KEY_GOALS)) {
+        if (! Cookie::get(self::SESSION_KEY_GOALS)) {
             return false;
         }
 
-        return session(self::SESSION_KEY_GOALS)->map(function ($goalId) {
+        return Cookie::get(self::SESSION_KEY_GOALS)->map(function ($goalId) {
             return Goal::find($goalId);
         });
     }
