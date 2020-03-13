@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Cookie;
 class AbTesting
 {
     protected $experiments;
+    protected $cookieExperiments;
+    protected $cookieGoals;
 
     const COOKIE_PERIOD = 60 * 24 * 180;
     const SESSION_KEY_EXPERIMENT = 'ab_testing_experiment';
@@ -62,8 +64,8 @@ class AbTesting
                 ]);
             }
         }
-
-        Cookie::queue(self::SESSION_KEY_GOALS, new Collection, self::COOKIE_PERIOD);
+        $this->cookieGoals = Cookie::make(self::SESSION_KEY_GOALS, new Collection, self::COOKIE_PERIOD);
+        Cookie::queue($this->cookieGoals);
     }
 
     /**
@@ -99,7 +101,8 @@ class AbTesting
         $next = $this->getNextExperiment();
         $next->incrementVisitor();
 
-        Cookie::queue(self::SESSION_KEY_EXPERIMENT, $next, self::COOKIE_PERIOD);
+        $this->cookieExperiments = Cookie::make(self::SESSION_KEY_EXPERIMENT, $next, self::COOKIE_PERIOD);
+        Cookie::queue($this->cookieExperiments);
     }
 
     /**
@@ -147,11 +150,12 @@ class AbTesting
             return false;
         }
 
-        if (Cookie::get(self::SESSION_KEY_GOALS)->contains($goal->id)) {
+        $cookieGoals = Cookie::get(self::SESSION_KEY_GOALS) ?? $this->cookieGoals;
+        if ($cookieGoals->contains($goal->id)) {
             return false;
         }
 
-        Cookie::get(self::SESSION_KEY_GOALS)->push($goal->id);
+        $cookieGoals->push($goal->id);
 
         $goal->incrementHit();
         event(new GoalCompleted($goal));
@@ -166,7 +170,7 @@ class AbTesting
      */
     public function getExperiment()
     {
-        return Cookie::get(self::SESSION_KEY_EXPERIMENT);
+        return Cookie::get(self::SESSION_KEY_EXPERIMENT) ?? $this->cookieExperiments;
     }
 
     /**
@@ -176,11 +180,12 @@ class AbTesting
      */
     public function getCompletedGoals()
     {
-        if (! Cookie::get(self::SESSION_KEY_GOALS)) {
+        $cookieGoals = Cookie::get(self::SESSION_KEY_GOALS) ?? $this->cookieGoals;
+        if (! $cookieGoals) {
             return false;
         }
 
-        return Cookie::get(self::SESSION_KEY_GOALS)->map(function ($goalId) {
+        return $cookieGoals->map(function ($goalId) {
             return Goal::find($goalId);
         });
     }
