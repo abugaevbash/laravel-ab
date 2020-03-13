@@ -15,8 +15,8 @@ use Illuminate\Support\Facades\Cookie;
 class AbTesting
 {
     protected $experiments;
-    protected $cookieExperiments;
-    protected $cookieGoals;
+    protected $cexperiments;
+    protected $cgoals;
 
     const COOKIE_PERIOD = 60 * 24 * 180;
     const SESSION_KEY_EXPERIMENT = 'ab_testing_experiment';
@@ -64,8 +64,8 @@ class AbTesting
                 ]);
             }
         }
-        $this->cookieGoals = Cookie::make(self::SESSION_KEY_GOALS, new Collection, self::COOKIE_PERIOD);
-        Cookie::queue($this->cookieGoals);
+        $this->cgoals = serialize(new Collection);
+        Cookie::queue(self::SESSION_KEY_GOALS, $this->cgoals, self::COOKIE_PERIOD);
     }
 
     /**
@@ -79,7 +79,7 @@ class AbTesting
             return;
         }
 
-        if (Cookie::get(self::SESSION_KEY_EXPERIMENT)) {
+        if (Cookie::get(self::SESSION_KEY_EXPERIMENT) ?? $this->cexperiments) {
             return;
         }
 
@@ -101,8 +101,8 @@ class AbTesting
         $next = $this->getNextExperiment();
         $next->incrementVisitor();
 
-        $this->cookieExperiments = Cookie::make(self::SESSION_KEY_EXPERIMENT, $next, self::COOKIE_PERIOD);
-        Cookie::queue($this->cookieExperiments);
+        $this->cexperiments = serialize($next);
+        Cookie::queue(self::SESSION_KEY_EXPERIMENT, $this->cexperiments, self::COOKIE_PERIOD);
     }
 
     /**
@@ -113,7 +113,6 @@ class AbTesting
     protected function getNextExperiment()
     {
         $sorted = $this->experiments->sortBy('visitors');
-
         return $sorted->first();
     }
 
@@ -150,7 +149,7 @@ class AbTesting
             return false;
         }
 
-        $cookieGoals = Cookie::get(self::SESSION_KEY_GOALS) ?? $this->cookieGoals;
+        $cookieGoals = unserialize(Cookie::get(self::SESSION_KEY_GOALS) ?? $this->cgoals);
         if ($cookieGoals->contains($goal->id)) {
             return false;
         }
@@ -170,7 +169,9 @@ class AbTesting
      */
     public function getExperiment()
     {
-        return Cookie::get(self::SESSION_KEY_EXPERIMENT) ?? $this->cookieExperiments;
+        $ret = Cookie::get(self::SESSION_KEY_EXPERIMENT) ?? $this->cexperiments;
+        $ret = unserialize($ret);
+        return $ret;
     }
 
     /**
@@ -180,7 +181,7 @@ class AbTesting
      */
     public function getCompletedGoals()
     {
-        $cookieGoals = Cookie::get(self::SESSION_KEY_GOALS) ?? $this->cookieGoals;
+        $cookieGoals = unserialize(Cookie::get(self::SESSION_KEY_GOALS) ?? $this->cgoals);
         if (! $cookieGoals) {
             return false;
         }
